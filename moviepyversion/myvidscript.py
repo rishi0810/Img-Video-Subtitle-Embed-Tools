@@ -1,53 +1,54 @@
-from moviepy.editor import *
+from moviepy.video.io.VideoFileClip import VideoFileClip
+from moviepy.video.VideoClip import ImageClip, TextClip
+from moviepy.video.compositing.CompositeVideoClip import CompositeVideoClip
+from moviepy.video.fx.FadeIn import FadeIn
+from moviepy.video.fx.FadeOut import FadeOut
+from moviepy.audio.io.AudioFileClip import AudioFileClip
+from moviepy.video.fx.Resize import Resize
+
 import json
 
-# ---------- SETTINGS ----------
-image_path = "img.jpg"
-audio_path = "story2.mp3"
-json_path = "sampleScript.json"
+image_path = "your_image.png"
+audio_path = "your_audio.mp3"
+json_path = "your_script_json.json"
 video_duration = 101  # seconds
-fps = 30
-w, h = 1280, 720
+fps = 25
+w, h = 720, 1280
 
-# ---------- LOAD IMAGE ----------
-bg = ImageClip(image_path).resize((w, h)).set_duration(video_duration)
+bg = ImageClip(image_path).resized(width=w, height=h).with_duration(video_duration)
 
-# Optional: Add subtle zoom to background (remove if not needed)
-bg = bg.fx(vfx.zoom_in, final_scale=1.05, duration=video_duration)
 
-# ---------- LOAD AUDIO ----------
-audio = AudioFileClip(audio_path).subclip(0, video_duration)
+bg = bg.with_effects([Resize(lambda t: 1 + (0.05 * t / video_duration))])
 
-# ---------- LOAD SUBTITLE JSON ----------
+
+audio = AudioFileClip(audio_path).subclipped(0, video_duration)
+
+
 with open(json_path) as f:
     subtitles = json.load(f)
 
-# ---------- CREATE SUBTITLE CLIPS ----------
+
 subtitle_clips = []
 for sub in subtitles:
     start = sub["startFrame"] / fps
     duration = sub["durationInFrames"] / fps
     text = sub["text"]
 
-    # Create the subtitle clip (no animation inside TextClip, just static)
+
     text_clip = TextClip(
-        text,
-        fontsize=40,
-        font="Arial",  # Make sure 'Poppins' is installed
         color="white",
-        method='caption',
-        size=(w - 100, None)
-    ).set_position(("center", h - 100)).set_duration(duration)
+        font="Arial",
+        text=text,
+        font_size=40,  
+        stroke_color="white",
+        stroke_width=1,
+    ).with_position(("center", h - 100)).with_duration(duration)
 
-    # Apply fade in and out
-    text_clip = text_clip.fadein(0.5).fadeout(0.5)
+    subtitle_clips.append(text_clip.with_start(start))
 
-    # Set start time
-    subtitle_clips.append(text_clip.set_start(start))
+video = CompositeVideoClip([bg] + subtitle_clips)   
+video = video.with_audio(audio)
 
-# ---------- COMBINE ----------
-video = CompositeVideoClip([bg, *subtitle_clips])
-video = video.set_audio(audio)
-
-# ---------- EXPORT ----------
 video.write_videofile("final_output_with_fade.mp4", fps=fps, codec='libx264', audio_codec='aac')
+
+print("Video processing complete: final_output_with_fade.mp4")
